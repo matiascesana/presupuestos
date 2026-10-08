@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Presupuestos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{--navy:#12263a;--teal:#0f8b8d;--bg:#f3f5f7;--ink:#1b2733;--line:#d9e0e6;--mut:#6b7a89}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--navy);color:#fff;display:flex;align-items:center;gap:24px;padding:12px 24px;flex-wrap:wrap}
+#logo img{height:44px;display:block;background:#fff;padding:4px 8px;border-radius:4px}#logo b{font-size:20px}
+nav{display:flex;gap:4px}nav button{background:none;border:0;color:#b8c7d6;padding:8px 14px;cursor:pointer;font-size:15px;border-bottom:2px solid transparent}
+nav button.on{color:#fff;border-color:var(--teal)}
+main{max-width:1000px;margin:24px auto;padding:0 16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:6px;padding:18px;margin-bottom:16px}
+h2{margin:0 0 12px;font-size:18px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h2 i{font-style:normal;background:var(--teal);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
+label{display:block;font-size:13px;color:var(--mut);margin-bottom:10px}
+input,select,textarea{display:block;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:4px;font:inherit;color:var(--ink);margin-top:3px;background:#fff}
+input[type=checkbox]{width:auto;display:inline;margin:0}
+button{font:inherit;padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:4px;cursor:pointer}
+button:hover{border-color:var(--teal)}button.pri{background:var(--teal);color:#fff;border-color:var(--teal)}button.del{color:#b3261e}
+:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 14px}
+.cols{display:grid;grid-template-columns:230px 1fr;gap:16px}@media(max-width:700px){.cols{grid-template-columns:1fr}}
+.row{display:flex;align-items:center;gap:12px;padding:8px;border-bottom:1px solid var(--line);cursor:pointer}.row span:nth-child(2){flex:1}
+.row.sel{background:#e5f3f3;font-weight:600}.th{height:44px;width:44px;object-fit:cover;border-radius:3px;margin:2px}
+.item{border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:12px}
+.ih{display:flex;justify-content:space-between;margin-bottom:8px}.opt{display:flex;gap:8px;align-items:center;margin-bottom:6px}.opt input[type=number]{width:140px;margin:0}.opt input:nth-child(2){margin:0}
+.mut{color:var(--mut)}
+.qr{flex-wrap:wrap}.qr span:first-child{width:210px;flex:none}
+.mo{position:fixed;inset:0;background:rgba(18,38,58,.55);display:flex;align-items:center;justify-content:center;z-index:10;padding:16px}
+.md{background:#fff;border-radius:8px;padding:22px;width:560px;max-width:100%;max-height:90vh;overflow:auto}.ft{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+#login{position:fixed;inset:0;background:var(--navy);display:flex;align-items:center;justify-content:center;z-index:20}#login .md{width:340px}
+.bd{font-size:12px;padding:2px 9px;border-radius:10px;background:#eef2f5;color:var(--mut);white-space:nowrap}.bd.warn{background:#fdecea;color:#b3261e}.bd.ok{background:#e5f3f3;color:#0b6e70}
+.done{border-color:var(--teal);background:#e5f3f3}.qr .pres{margin:0;display:flex;gap:5px;align-items:center;white-space:nowrap;color:var(--ink);font-size:13px}
+/* PDF */
+#pdfwrap{position:fixed;left:-10000px;top:0;width:210mm}
+#pdf{width:210mm;background:#fff;font-family:"Segoe UI",Arial,sans-serif;color:#1b2733}
+.pg{width:210mm;height:297mm;display:flex;flex-direction:column;page-break-after:always;background:#fff;overflow:hidden;line-height:1.5;font-size:13px}
+.pg:last-child{page-break-after:auto}
+.ph{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6mm;padding:5mm 0 2mm;margin:0 16mm;border-bottom:3px solid #0f8b8d}
+.ph img{display:block}.hp{display:flex;align-items:center;justify-content:flex-end;gap:4mm}.hp span{font-weight:700;font-size:16px;color:#12263a;text-align:right;line-height:1.2}.hp b{color:#12263a;font-size:14px}
+.pb{flex:1;min-height:0;overflow:hidden;padding:10mm 16mm}
+.pb.im{display:flex;align-items:center;justify-content:center;padding:6mm 12mm}
+.pf{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:4mm;padding:3mm 0 6mm;margin:0 16mm;border-top:1px solid #d9e0e6;color:#12263a;font-size:12px}.pf span:nth-child(2){text-align:center}.pf .pn{text-align:right;color:#6b7a89;font-size:11px;white-space:nowrap}
+.cov{text-align:center;display:flow-root}.cov small{color:#0f8b8d;font-size:16px}.cov h1{font-size:34px;color:#12263a;margin:6px 0 14px}.cov img{display:block;margin:0 auto}
+.pb h2{display:block;color:#12263a;font-size:22px;border-bottom:1px solid #d9e0e6;padding-bottom:6px;margin:0 0 12px}.pb h3{color:#0f8b8d;margin:12px 0 4px}.pb h4{margin:14px 0 4px;color:#12263a;font-size:15px}
+.pb p{margin:0 0 6px}.pb p.tx{white-space:pre-wrap;margin:0 0 4px}.pb .gap{height:8px}.pb b.sub{display:block;margin:6px 0 2px}
+table.sp,table.pr{width:100%;border-collapse:collapse;margin:10px 0;table-layout:fixed}.sp td{border-bottom:1px solid #e6ebf0;padding:5px 8px;word-wrap:break-word;vertical-align:top}.sp td.k{width:38%;font-weight:600;background:#f3f5f7}.sp td.sh{font-weight:700;color:#12263a;background:#f3f5f7}.sp td.pl{font-weight:400}.sp td.sub{padding-left:22px}
+.pr th{background:#12263a;color:#fff;text-align:left;padding:7px 8px}.pr th:nth-child(1){width:44%}.pr th:nth-child(2){width:10%}.pr th:nth-child(3),.pr th:nth-child(4){width:23%}
+.pr td{border-bottom:1px solid #e6ebf0;padding:6px 8px;vertical-align:top;word-wrap:break-word}.pr .tot td{font-weight:700;background:#e5f3f3}
+.gr{display:flex;gap:8mm;margin-top:6mm}.gc{display:flex;align-items:center;justify-content:center;border:1px solid #e6ebf0;padding:4px;overflow:hidden;flex:none}.gc img{display:block}
+</style></head><body>
+<div id="login"><form class="md" onsubmit="return login(event)"><h2>Ingresar</h2>
+<label>Email<input id="l_e" type="email" required></label><label>Contraseña<input id="l_p" type="password" required></label>
+<button class="pri" style="width:100%">Entrar</button></form></div>
+<header><div id="logo"></div><nav>
+<button data-v="quote" onclick="go('quote')">Nuevo presupuesto</button>
+<button data-v="saved" onclick="go('saved')">Presupuestos generados</button>
+<button data-v="cat" onclick="go('cat')">Marcas y productos</button>
+<button data-v="cfg" onclick="go('cfg')">Mi empresa</button></nav>
+<button style="margin-left:auto" onclick="sb.auth.signOut()">Salir</button></header>
+<main id="main"></main><div id="pdfwrap"><div id="pdf"></div></div>
+<script>
+/* === CONFIGURACIÓN: pegá los datos de tu proyecto Supabase === */
+const SUPABASE_URL='https://iieiiqyvvmrzvtadvleo.supabase.co', SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlpZWlpcXl2dm1yenZ0YWR2bGVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA5MTQ2MjMsImV4cCI6MjEwNjQ5MDYyM30.cUNl3TBdVx0wWqwUqr4RDJlj0RJjCoJlU0MNsu_5hE4';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const nl=s=>esc(s).replace(/\n/g,'<br>');
+const money=n=>new Intl.NumberFormat('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(+n||0);
+const prod=id=>S.prods.find(p=>p.id==id)||{}, brand=id=>S.brands.find(b=>b.id==id)||{};
+const newQ=()=>({client:'',contact:'',commission:'',presented:false,currency:'USD',validity:'15 días',kind:'equipo',cover:true,tc:null,pc:null});
+const uid=()=>'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const slug=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\W+/g,'_').replace(/^_+|_+$/g,'');
+let S={tpl:{terms:[],pay:[]},done:null,cfg:{},brands:[],prods:[],opts:[],items:[],q:newQ(),qid:null,quotes:[],view:'quote',brand:null};
+
+async function login(e){e.preventDefault();const {error}=await sb.auth.signInWithPassword({email:$('#l_e').value,password:$('#l_p').value});if(error)alert('No se pudo ingresar: '+error.message);return false}
+sb.auth.onAuthStateChange((_e,s)=>{$('#login').style.display=s?'none':'flex';if(s)load()});
+async function load(){
+ const [c,b,p,o,qq]=await Promise.all([sb.from('settings').select().eq('id',1).maybeSingle(),sb.from('brands').select().order('name'),sb.from('products').select().order('name'),sb.from('product_options').select().order('name'),sb.from('quotes').select('id,client,created_at,data').order('created_at',{ascending:false})]);
+ if(qq.error)console.warn(qq.error);S.quotes=qq.data||[];
+ S.cfg=c.data||{};{let t=S.cfg.templates;if(!t){try{t=JSON.parse(localStorage.getItem('tpl')||'null')}catch(e){}}S.tpl={terms:(t&&t.terms)||[],pay:(t&&t.pay)||[]}}S.brands=b.data||[];S.prods=p.data||[];S.opts=o.data||[];render()}
+function go(v){S.view=v;render()}
+function render(){
+ $('#logo').innerHTML=S.cfg.logo_url?`<img src="${esc(S.cfg.logo_url)}">`:`<b>${esc(S.cfg.company||'Mi empresa')}</b>`;
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.view));
+ $('#main').innerHTML={quote:vQuote,saved:vSaved,cat:vCat,cfg:vCfg}[S.view]()}
+
+/* ---------- utilidades ---------- */
+async function up(file){const p=Date.now()+'-'+file.name.replace(/[^\w.]/g,'_');const {error}=await sb.storage.from('media').upload(p,file);if(error)throw error;return sb.storage.from('media').getPublicUrl(p).data.publicUrl}
+function modal(title,html,onOk,okText='Guardar'){
+ const m=document.createElement('div');m.className='mo';
+ m.innerHTML=`<div class="md"><h2>${title}</h2>${html}<div class="ft"><button class="x">Cancelar</button><button class="pri ok">${okText}</button></div></div>`;
+ document.body.append(m);m.querySelector('.x').onclick=()=>m.remove();
+ m.querySelector('.ok').onclick=async()=>{try{await onOk(m);m.remove()}catch(e){alert(e.message||e)}};return m}
+const fld=(m,n)=>m.querySelector(`[name=${n}]`);
+
+/* ---------- Mi empresa ---------- */
+const vCfg=()=>`<div class="card"><h2>Datos de la empresa</h2><div class="g">
+<label>Nombre<input id="c_company" value="${esc(S.cfg.company)}"></label>
+<label>Teléfono<input id="c_phone" value="${esc(S.cfg.phone)}"></label>
+<label>Email<input id="c_email" value="${esc(S.cfg.email)}"></label>
+<label>Logo<input type="file" id="c_logo" accept="image/*"></label></div>
+<button class="pri" onclick="saveCfg()">Guardar datos</button></div>`+tplCard('terms','Condiciones comerciales universales','Creá todas las que necesites. El título es solo para identificarlas a simple vista: NO sale en el PDF. Al crear un presupuesto las vas a ver listadas para tildar las que correspondan.')+tplCard('pay','Formas de pago universales','Creá todas las formas de pago que uses. El título es solo para identificarlas: NO sale en el PDF.');
+const tplCard=(k,title,hint)=>`<div class="card"><h2>${title}</h2><p class="mut" style="margin-top:0">${hint}</p>${(S.tpl[k]||[]).map((t,i)=>`<div class="item"><div class="ih"><label style="flex:1;margin:0">Título (no figura en el PDF)<input value="${esc(t.title)}" oninput="S.tpl.${k}[${i}].title=this.value"></label><button class="del" style="align-self:flex-end;margin-left:8px" onclick="delTpl('${k}',${i})">✕</button></div><label style="margin:8px 0 0">Texto (una línea por renglón)<textarea rows="4" oninput="S.tpl.${k}[${i}].text=this.value">${esc(t.text)}</textarea></label></div>`).join('')||'<p class="mut">Todavía no hay ninguna.</p>'}<button onclick="addTpl('${k}')">+ Agregar</button> <button class="pri" onclick="saveTpl()">Guardar</button></div>`;
+function addTpl(k){S.tpl[k].push({id:uid(),title:'',text:''});render()}
+function delTpl(k,i){if(!confirm('¿Eliminar? (Los presupuestos ya guardados no se modifican. Recordá tocar Guardar.)'))return;S.tpl[k].splice(i,1);render()}
+async function saveTpl(){try{const {error}=await sb.from('settings').upsert({id:1,templates:S.tpl});if(error)throw error;localStorage.removeItem('tpl');alert('Guardado')}
+ catch(e){localStorage.setItem('tpl',JSON.stringify(S.tpl));alert('Se guardó SOLO en este navegador porque falta una columna en Supabase.\n\nEjecutá una vez en Supabase > SQL Editor:\n\nalter table settings add column templates jsonb;\n\nLuego volvé a tocar Guardar para que quede en la nube.')}}
+async function saveCfg(){try{let logo=S.cfg.logo_url;const f=$('#c_logo').files[0];if(f)logo=await up(f);
+ const {error}=await sb.from('settings').upsert({id:1,company:$('#c_company').value,phone:$('#c_phone').value,email:$('#c_email').value,logo_url:logo});
+ if(error)throw error;await load()}catch(e){alert(e.message)}}
+
+/* ---------- Catálogo ---------- */
+function vCat(){const b=S.brands.find(x=>x.id==S.brand);
+ return `<div class="cols"><div class="card"><h2>Marcas</h2>${S.brands.map(x=>`<div class="row ${x.id==S.brand?'sel':''}" onclick="S.brand='${x.id}';render()"><span>${esc(x.name)}</span></div>`).join('')}<p><button onclick="newBrand()">+ Nueva marca</button></p></div>
+ <div>${b?brandPanel(b):'<div class="card mut">Elegí una marca o creá una nueva.</div>'}</div></div>`}
+function brandPanel(b){const ps=S.prods.filter(p=>p.brand_id==b.id);
+ return `<div class="card"><h2>${esc(b.name)}</h2>
+ <label>Nombre<input id="b_name" value="${esc(b.name)}"></label>
+ <label>Logo de la marca (aparece arriba a la derecha en el PDF)<input type="file" id="b_logo" accept="image/*"></label>
+ ${b.logo_url?`<p><img src="${esc(b.logo_url)}" style="max-height:48px;max-width:200px;background:#fff;border:1px solid var(--line);padding:4px;border-radius:4px"></p>`:''}
+ <button class="pri" onclick="saveBrand('${b.id}')">Guardar marca</button> <button class="del" onclick="delBrand('${b.id}')">Eliminar marca</button></div>
+ <div class="card"><h2>Productos <button class="pri" onclick="prodModal()">+ Producto</button></h2>
+ ${ps.map(p=>`<div class="row">${p.main_image?`<img class="th" src="${esc(p.main_image)}">`:'<span class="th"></span>'}<span>${esc(p.name)}${p.kind=='insumo'?' <span class="mut">· Insumo</span>':''}</span><span class="mut">${money(p.price)} ${p.price_mode=='iva'?'+ IVA':'final'}</span><button onclick="prodModal('${p.id}')">Editar</button><button class="del" onclick="delProd('${p.id}')">✕</button></div>`).join('')||'<p class="mut">Esta marca todavía no tiene productos.</p>'}</div>`}
+async function newBrand(){const n=prompt('Nombre de la marca');if(!n)return;const {data,error}=await sb.from('brands').insert({name:n}).select().single();if(error)return alert(error.message);S.brand=data.id;await load()}
+async function saveBrand(id){try{const b=brand(id);let logo=b.logo_url||null;const f=$('#b_logo').files[0];if(f)logo=await up(f);
+ const {error}=await sb.from('brands').update({name:$('#b_name').value,logo_url:logo}).eq('id',id);if(error)throw error;await load()}catch(e){alert(e.message)}}
+async function delBrand(id){if(!confirm('¿Eliminar la marca y todos sus productos?'))return;await sb.from('brands').delete().eq('id',id);S.brand=null;await load()}
+async function delProd(id){if(!confirm('¿Eliminar este producto?'))return;await sb.from('products').delete().eq('id',id);await load()}
+function prodModal(id){
+ const p=S.prods.find(x=>x.id==id)||{price_mode:'iva',images:[]};
+ const os=S.opts.filter(o=>o.product_id==id).map(o=>o.name+' | '+o.price).join('\n');
+ modal(id?'Editar producto':'Nuevo producto',`<div class="g">
+ <label>Nombre / modelo<input name="name" value="${esc(p.name)}"></label>
+ <label>Precio<input name="price" type="number" step="any" value="${p.price??''}"></label>
+ <label>El precio se cotiza<select name="mode"><option value="iva" ${p.price_mode=='iva'?'selected':''}>+ IVA</option><option value="final" ${p.price_mode=='final'?'selected':''}>Precio final</option></select></label>
+ <label>Tipo<select name="kind"><option value="equipo" ${(p.kind||'equipo')=='equipo'?'selected':''}>Equipamiento</option><option value="insumo" ${p.kind=='insumo'?'selected':''}>Insumo</option></select></label>
+ <label>Imagen principal (portada)<input name="main" type="file" accept="image/*"></label></div>
+ <label>Descripción técnica<textarea name="desc" rows="4">${esc(p.description)}</textarea></label>
+ <label>Especificaciones (una por línea: Característica: valor)<textarea name="specs" rows="5">${esc(p.specs)}</textarea></label>
+ <label>Agregar imágenes adicionales<input name="imgs" type="file" accept="image/*" multiple></label>
+ <div>${(p.images||[]).map(u=>`<img class="th" src="${esc(u)}">`).join('')}${(p.images||[]).length?'<label><input name="clr" type="checkbox"> Quitar las imágenes adicionales actuales</label>':'<input name="clr" type="checkbox" hidden>'}</div>
+ <label>Opcionales (uno por línea: Nombre | precio)<textarea name="opts" rows="3">${esc(os)}</textarea></label>`,
+ async m=>{
+  let main=p.main_image,imgs=[...(p.images||[])];
+  if(fld(m,'main').files[0])main=await up(fld(m,'main').files[0]);
+  if(fld(m,'clr').checked)imgs=[];
+  for(const f of fld(m,'imgs').files)imgs.push(await up(f));
+  const row={brand_id:S.brand,name:fld(m,'name').value,price:+fld(m,'price').value||0,price_mode:fld(m,'mode').value,kind:fld(m,'kind').value,description:fld(m,'desc').value,specs:fld(m,'specs').value,main_image:main,images:imgs};
+  let pid=id,r;
+  if(id)r=await sb.from('products').update(row).eq('id',id);else{r=await sb.from('products').insert(row).select().single();pid=r.data?.id}
+  if(r.error)throw r.error;
+  await sb.from('product_options').delete().eq('product_id',pid);
+  const os=fld(m,'opts').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const [a,b]=l.split('|');return{product_id:pid,name:a.trim(),price:+(b||0)}});
+  if(os.length)await sb.from('product_options').insert(os);
+  await load()})}
+
+/* ---------- Presupuesto ---------- */
+function vQuote(){syncSel();const q=S.q;
+ return `${S.done?`<div class="card done"><b>${S.done=='pdf'?'✔ PDF generado y presupuesto guardado.':'✔ Presupuesto guardado.'}</b> &nbsp;<button class="pri" onclick="newQuote()">Nuevo presupuesto (borrar todo)</button></div>`:''}${S.qid?`<div class="card" style="border-color:var(--teal)"><b>Editando un presupuesto guardado.</b> Los cambios se guardan al tocar "Guardar cambios" o "Generar PDF". <button onclick="newQuote()">Empezar uno nuevo</button></div>`:''}
+ <div class="card"><h2><span><i>1</i>Cliente</span></h2><div class="g">
+ <label>Cliente / institución<input value="${esc(q.client)}" oninput="S.q.client=this.value"></label>
+ <label>A la atención de<input value="${esc(q.contact)}" oninput="S.q.contact=this.value"></label>
+ <label>Contacto que generó el presupuesto (comisión) <span style="font-size:12px">— no figura en el PDF</span><input value="${esc(q.commission)}" oninput="S.q.commission=this.value"></label>
+ <label>Moneda<select onchange="S.q.currency=this.value"><option ${q.currency=='USD'?'selected':''}>USD</option><option ${q.currency=='ARS'?'selected':''}>ARS</option></select></label>
+ <label>Tipo de presupuesto<select onchange="S.q.kind=this.value;render()"><option value="equipo" ${q.kind!='insumo'?'selected':''}>Equipamiento</option><option value="insumo" ${q.kind=='insumo'?'selected':''}>Insumos</option></select></label>
+ ${q.kind=='insumo'?`<label>Hoja de portada con fotos (insumos)<select onchange="S.q.cover=this.value=='1';render()"><option value="1" ${q.cover!==false?'selected':''}>Sí, mostrar fotos</option><option value="0" ${q.cover===false?'selected':''}>No, solo la hoja de detalle y precios</option></select></label>`:''}
+ <label>Validez de la oferta<input value="${esc(q.validity)}" oninput="S.q.validity=this.value"></label>
+ <label style="align-self:end;color:var(--ink)"><input type="checkbox" ${q.presented?'checked':''} onchange="S.q.presented=this.checked"> Presentado al cliente</label></div></div>
+ <div class="card"><h2><span><i>2</i>Productos</span><button class="pri" onclick="addModal()">+ Agregar producto</button></h2>
+ ${S.items.map(itemRow).join('')||'<p class="mut">Agregá uno o más productos, de la misma marca o de marcas distintas.</p>'}</div>
+ <div class="card"><h2><span><i>3</i>Condiciones comerciales y formas de pago</span></h2>
+ <p class="mut" style="margin-top:0">Tildá las que se agregan a este presupuesto. Al tildarlas podés editar el texto o sumar líneas (solo afecta a este presupuesto).</p>
+ ${selBlock('tc','Condiciones comerciales','No hay condiciones cargadas. Creálas en "Mi empresa" o agregá un texto propio.')}
+ ${selBlock('pc','Formas de pago y financiación','No hay formas de pago cargadas. Creálas en "Mi empresa" o agregá un texto propio.')}</div>
+ <div class="card"><h2><span><i>4</i>Generar</span></h2><button class="pri" onclick="makePdf()">Generar PDF</button> <button onclick="saveQuoteUI()">${S.qid?'Guardar cambios':'Guardar sin generar PDF'}</button> <button onclick="newQuote(true)">Empezar de nuevo</button></div>`}
+function syncSel(){const q=S.q;[['tc','terms'],['pc','pay']].forEach(([f,k])=>{q[f]=q[f]||[];(S.tpl[k]||[]).forEach(t=>{if(!q[f].some(x=>x.id==t.id))q[f].push({id:t.id,title:t.title,text:t.text,on:false})})})}
+function selBlock(f,label,empty){const q=S.q;
+ return `<h4>${label}</h4>`+(q[f].map((t,i)=>`<div class="item"><label style="margin:0;color:var(--ink);font-size:14px"><input type="checkbox" ${t.on?'checked':''} onchange="S.q.${f}[${i}].on=this.checked;render()"> <b>${esc(t.title||'(sin título)')}</b></label>${t.on?`<label style="margin:8px 0 0">Texto que va al PDF (una línea por renglón)<textarea rows="4" oninput="S.q.${f}[${i}].text=this.value">${esc(t.text)}</textarea></label>`:`<div class="mut" style="font-size:13px;margin-top:2px">${esc(String(t.text||'').replace(/\s+/g,' ').slice(0,120))}</div>`}</div>`).join('')||`<p class="mut">${empty}</p>`)+`<button onclick="S.q.${f}.push({id:'x'+Date.now(),title:'Texto propio',text:'',on:true});render()">+ Agregar texto propio</button>`}
+
+/* ---------- Presupuestos generados ---------- */
+function newQuote(ask){if(ask&&S.items.length&&!confirm('¿Descartar el presupuesto actual y empezar uno nuevo? Lo que no guardaste se pierde.'))return;S.items=[];S.q=newQ();S.qid=null;S.done=null;S.view='quote';render();window.scrollTo({top:0})}
+async function loadQuotes(){const r=await sb.from('quotes').select('id,client,created_at,data').order('created_at',{ascending:false});if(r.error)console.warn(r.error);S.quotes=r.data||[]}
+async function saveQuote(){const q=S.q;if(!q.date)q.date=new Date().toISOString();if(q.presented&&!q.presentedAt)q.presentedAt=new Date().toISOString();if(!q.presented)q.presentedAt=null;
+ const summary=S.items.map(it=>it.label||(brand(prod(it.pid).brand_id).name+' '+prod(it.pid).name));
+ const row={client:q.client,data:{q,items:S.items,summary}};
+ if(S.qid){const {error}=await sb.from('quotes').update(row).eq('id',S.qid);if(error)throw error}
+ else{const {data,error}=await sb.from('quotes').insert(row).select('id').single();if(error)throw error;S.qid=data.id}
+ await loadQuotes()}
+async function saveQuoteUI(){if(!S.items.length)return alert('Agregá al menos un producto');
+ try{await saveQuote();S.done='save';render();window.scrollTo({top:0,behavior:'smooth'})}catch(e){alert('No se pudo guardar: '+(e.message||e))}}
+function openQuote(id){const r=S.quotes.find(x=>x.id==id);if(!r)return;const d=r.data||{};
+ S.q={...newQ(),...(d.q||{})};S.items=JSON.parse(JSON.stringify(d.items||[]));S.qid=r.id;S.done=null;
+ S.items.forEach(it=>{it.opts=it.opts||[]});
+ /* presupuestos viejos: las condiciones/pagos por producto pasan a la lista nueva */
+ if(!Array.isArray(S.q.tc)||!Array.isArray(S.q.pc)){const u=k=>[...new Set(S.items.map(i=>(i[k]||'').trim()).filter(Boolean))].map((t,i)=>({id:'old'+k+i,title:'Del presupuesto original',text:t,on:true}));
+  S.q.tc=Array.isArray(S.q.tc)?S.q.tc:u('terms');S.q.pc=Array.isArray(S.q.pc)?S.q.pc:u('pay')}
+ if(S.items.some(it=>!prod(it.pid).id))alert('Atención: algún producto de este presupuesto ya no existe en el catálogo. Se mantienen los datos guardados, pero no se podrán mostrar sus imágenes ni especificaciones.');
+ go('quote')}
+async function delQuote(id){if(!confirm('¿Eliminar este presupuesto guardado?'))return;
+ const {error}=await sb.from('quotes').delete().eq('id',id);if(error)return alert(error.message);
+ if(S.qid==id)S.qid=null;await loadQuotes();render()}
+async function togglePres(id,on){const r=S.quotes.find(x=>x.id==id);if(!r)return;r.data=r.data||{};r.data.q=r.data.q||{};
+ r.data.q.presented=on;r.data.q.presentedAt=on?new Date().toISOString():null;
+ if(S.qid==id){S.q.presented=on;S.q.presentedAt=r.data.q.presentedAt}
+ const {error}=await sb.from('quotes').update({data:r.data}).eq('id',id);if(error){alert('No se pudo actualizar: '+error.message);await loadQuotes()}render()}
+function vSaved(){
+ if(!S.quotes.length)return '<div class="card mut">Todavía no hay presupuestos generados.</div>';
+ const g={};
+ S.quotes.forEach(r=>{const d=new Date(r.created_at);const k=isNaN(d)?'Sin fecha':d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});(g[k]=g[k]||[]).push(r)});
+ return `<h2 style="margin-bottom:12px">Presupuestos generados</h2>`+Object.entries(g).map(([k,rs])=>`<div class="card"><h2 style="text-transform:capitalize"><span>${esc(k)}</span><span class="mut" style="font-size:13px;font-weight:400;text-transform:none">${rs.length} presupuesto${rs.length>1?'s':''}</span></h2>
+ ${rs.map(r=>{const d=r.data||{},d0=new Date(r.created_at);
+  const pr=(d.summary&&d.summary.length?d.summary:(d.items||[]).map(it=>it.label||'')).filter(Boolean).join(' · ');
+  const days=isNaN(d0)?0:Math.max(0,Math.floor((Date.now()-d0)/864e5)),pres=!!(d.q&&d.q.presented),com=(d.q&&d.q.commission)||'';
+  const dTxt=days==0?'Hoy':days+(days==1?' día':' días');
+  return `<div class="row qr" onclick="openQuote('${r.id}')"><span><b>${esc(r.client||'(sin cliente)')}</b><br><small class="mut">${com?'Comisión: '+esc(com):'<i>sin contacto de comisión</i>'}</small></span><span>${esc(pr)||'<i class="mut">sin productos</i>'}</span><span class="bd ${pres?'ok':days>=7?'warn':''}" title="Días desde que se creó">${dTxt}</span><label class="pres" onclick="event.stopPropagation()"><input type="checkbox" ${pres?'checked':''} onchange="togglePres('${r.id}',this.checked)"> Presentado</label><span class="mut">${isNaN(d0)?'':d0.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</span><button onclick="event.stopPropagation();openQuote('${r.id}')">Abrir / editar</button><button class="del" onclick="event.stopPropagation();delQuote('${r.id}')">✕</button></div>`}).join('')}</div>`).join('')}
+function itemRow(it,i){const p=prod(it.pid);
+ return `<div class="item"><div class="ih"><b>${esc(brand(p.brand_id).name)} · ${esc(p.name)}</b><button class="del" onclick="S.items.splice(${i},1);render()">✕</button></div>
+ <div class="g"><label>Precio unitario<input type="number" step="any" value="${it.price}" oninput="S.items[${i}].price=+this.value"></label>
+ <label>Se cotiza<select onchange="S.items[${i}].mode=this.value"><option value="iva" ${it.mode=='iva'?'selected':''}>+ IVA</option><option value="final" ${it.mode=='final'?'selected':''}>Precio final</option></select></label>
+ <label>Cantidad<input type="number" min="1" value="${it.qty}" oninput="S.items[${i}].qty=+this.value||1"></label></div>
+ <label><input type="checkbox" ${it.alt?'checked':''} onchange="S.items[${i}].alt=this.checked"> Opción alternativa (se muestra pero no suma al total)</label>
+ ${S.q.kind=='insumo'&&S.q.cover!==false?`<label><input type="checkbox" ${it.cover!==false?'checked':''} onchange="S.items[${i}].cover=this.checked"> Mostrar su imagen en la portada del PDF</label>`:''}
+ ${it.opts.length?'<div class="mut">Opcionales (tildá los que se incluyen)</div>':''}
+ ${it.opts.map((o,j)=>`<div class="opt"><input type="checkbox" ${o.on?'checked':''} onchange="S.items[${i}].opts[${j}].on=this.checked"><input value="${esc(o.name)}" oninput="S.items[${i}].opts[${j}].name=this.value"><input type="number" step="any" value="${o.price}" oninput="S.items[${i}].opts[${j}].price=+this.value"></div>`).join('')}
+ <button onclick="S.items[${i}].opts.push({name:'Nuevo opcional',price:0,on:true});render()">+ Opcional</button></div>`}
+function addModal(){
+ const kind=S.q.kind||'equipo',kp=p=>(p.kind||'equipo')==kind;
+ const brs=S.brands.filter(b=>S.prods.some(p=>p.brand_id==b.id&&kp(p)));
+ if(!brs.length)return alert(`No hay productos cargados como ${kind=='insumo'?'Insumo':'Equipamiento'}. Cambiá el tipo del presupuesto o cargá productos de ese tipo en "Marcas y productos".`);
+ const m=modal('Agregar '+(kind=='insumo'?'insumo':'equipo'),`<label>Marca<select name="b">${brs.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('')}</select></label><label>Producto<select name="p"></select></label>`,
+ m=>{const pid=fld(m,'p').value;if(!pid)throw Error('Elegí un producto');addItem(pid)},'Agregar');
+ const fill=()=>{fld(m,'p').innerHTML=S.prods.filter(p=>p.brand_id==fld(m,'b').value&&kp(p)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')};
+ fld(m,'b').onchange=fill;fill()}
+function addItem(pid){const p=prod(pid),b=brand(p.brand_id);
+ S.items.push({pid,label:(b.name||'')+' '+(p.name||''),price:p.price,mode:p.price_mode,qty:1,alt:false,opts:S.opts.filter(o=>o.product_id==pid).map(o=>({name:o.name,price:o.price,on:false}))});
+ render()}
+
+/* ---------- PDF ---------- */
+/* Las imágenes se miden antes de dibujarlas y se ajustan (sin deformar) al espacio
+   libre de cada hoja. El contenido que no entra pasa solo a una hoja nueva. */
+const DIM={},mm2px=mm=>mm*96/25.4;
+const loadImg=u=>DIM[u]!==undefined?Promise.resolve():new Promise(r=>{const i=new Image();i.crossOrigin='anonymous';
+ i.onload=()=>{DIM[u]={w:i.naturalWidth||300,h:i.naturalHeight||200};r()};i.onerror=()=>{DIM[u]=null;r()};i.src=u});
+const imgFit=(u,mw,mh,cap=2)=>{const d=DIM[u];if(!d)return '';const s=Math.min(mw/d.w,mh/d.h,cap);
+ return `<img src="${esc(u)}" crossorigin="anonymous" style="width:${(d.w*s).toFixed(1)}px;height:${(d.h*s).toFixed(1)}px">`};
+const E=(tag,html,cls)=>{const e=document.createElement(tag);if(cls)e.className=cls;e.innerHTML=html;return e};
+const lines=t=>String(t||'').split('\n').map(s=>s.trim()).filter(Boolean);
+const boxOf=pb=>{const s=getComputedStyle(pb);return{w:pb.clientWidth-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight),h:pb.clientHeight-parseFloat(s.paddingTop)-parseFloat(s.paddingBottom)}};
+const over=pb=>{const l=pb.lastElementChild;if(!l)return false;const s=getComputedStyle(pb),pr=pb.getBoundingClientRect(),lr=l.getBoundingClientRect();
+ return lr.bottom+parseFloat(getComputedStyle(l).marginBottom)>pr.bottom-parseFloat(s.paddingBottom)+0.5};
+
+/* recorta los márgenes en blanco del logo para poder mostrarlo más grande */
+const TR={};
+const trimLogo=u=>TR[u]!==undefined?Promise.resolve():new Promise(r=>{const i=new Image();i.crossOrigin='anonymous';
+ i.onload=()=>{try{const w=i.naturalWidth,h=i.naturalHeight,c=document.createElement('canvas');c.width=w;c.height=h;const cx=c.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.drawImage(i,0,0);
+  const d=cx.getImageData(0,0,w,h).data;let x0=w,y0=h,x1=-1,y1=-1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const k=(y*w+x)*4;if(d[k]<236||d[k+1]<236||d[k+2]<236){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+  if(x1<0)throw 0;
+  x0=Math.max(0,x0-2);y0=Math.max(0,y0-2);x1=Math.min(w-1,x1+2);y1=Math.min(h-1,y1+2);
+  const cw=x1-x0+1,ch=y1-y0+1,o=document.createElement('canvas');o.width=cw;o.height=ch;const ox=o.getContext('2d');ox.drawImage(c,x0,y0,cw,ch,0,0,cw,ch);
+  const id=ox.getImageData(0,0,cw,ch),e=id.data;for(let k=0;k<e.length;k+=4)if(e[k]>238&&e[k+1]>238&&e[k+2]>238){e[k]=e[k+1]=e[k+2]=255}
+  ox.putImageData(id,0,0);TR[u]={src:o.toDataURL('image/png'),w:cw,h:ch}}catch(e){TR[u]=null}r()};
+ i.onerror=()=>{TR[u]=null;r()};i.src=u});
+const logoImg=(u,mw,mh,cap=3)=>{const t=TR[u];if(!t)return imgFit(u,mw,mh,cap);const s=Math.min(mw/t.w,mh/t.h,cap);
+ return `<img src="${t.src}" style="width:${(t.w*s).toFixed(1)}px;height:${(t.h*s).toFixed(1)}px">`};
+
+async function makePdf(){
+ if(!S.items.length)return alert('Agregá al menos un producto');
+ syncSel();
+ const c=S.cfg,q=S.q,cu=q.currency=='USD'?'USD':'$';
+ try{await saveQuote()}catch(e){alert('El PDF se genera igual, pero no se pudo guardar el presupuesto: '+(e.message||e))}
+ const urls=new Set([c.logo_url]);
+ S.items.forEach(it=>{const p=prod(it.pid);urls.add(brand(p.brand_id).logo_url);urls.add(p.main_image);(p.images||[]).forEach(u=>urls.add(u))});
+ await Promise.all([...urls].filter(Boolean).map(loadImg));
+ await Promise.all([c.logo_url,...S.items.map(it=>brand(prod(it.pid).brand_id).logo_url)].filter(Boolean).map(trimLogo));
+
+ /* encabezado: logo de la empresa (izq.) + nombre del producto con logo de la marca (der.) */
+ const logo=c.logo_url&&DIM[c.logo_url]?logoImg(c.logo_url,mm2px(75),mm2px(22)):`<b>${esc(c.company)}</b>`;
+ const bl=b=>b.logo_url&&DIM[b.logo_url]?logoImg(b.logo_url,mm2px(42),mm2px(14)):(b.name?`<b>${esc(b.name)}</b>`:'');
+ const hdProd=(b,p)=>`<div class="ph">${logo}<div class="hp"><span>${esc(p.name)}</span>${bl(b)}</div></div>`;
+ const brs=[...new Map(S.items.map(i=>{const b=brand(prod(i.pid).brand_id);return [b.id,b]})).values()];
+ const hdAll=S.items.length==1?hdProd(brand(prod(S.items[0].pid).brand_id),prod(S.items[0].pid)):`<div class="ph">${logo}<div class="hp"><span>Propuesta comercial</span>${brs.map(bl).join('')}</div></div>`;
+ /* datos de contacto: pie de cada hoja */
+ const ft=`<div class="pf"><span></span><span><b>${esc(c.company||'')}</b>${c.company?' &nbsp;|&nbsp; ':''}Tel: ${esc(c.phone||'')} &nbsp;|&nbsp; ${esc(c.email||'')}</span><span class="pn"></span></div>`;
+ const root=$('#pdf');root.innerHTML='';
+ let cur,curHd='';
+ const newPage=h=>{if(h)curHd=h;const s=document.createElement('section');s.className='pg';s.innerHTML=curHd+'<div class="pb"></div>'+ft;root.append(s);cur=s.querySelector('.pb');return cur};
+ /* una imagen por hoja, centrada y ajustada al espacio disponible sin deformarla */
+ const imgPage=(u,h)=>{newPage(h);cur.classList.add('im');const bx=boxOf(cur);cur.innerHTML=imgFit(u,bx.w,bx.h-2,2)};
+ const place=el=>{cur.append(el);if(over(cur)&&cur.children.length>1){el.remove();newPage();cur.append(el)}return el};
+ const placeTable=(cls,head,rows)=>{let t,tb;const hr=head?1:0;
+  const mk=()=>{t=document.createElement('table');t.className=cls;t.innerHTML='<tbody>'+head+'</tbody>';tb=t.tBodies[0];cur.append(t)};
+  mk();
+  rows.forEach(r=>{tb.insertAdjacentHTML('beforeend',r);
+   if(over(cur)&&(tb.rows.length>hr+1||cur.children.length>1)){tb.lastElementChild.remove();if(tb.rows.length<=hr)t.remove();newPage();mk();tb.insertAdjacentHTML('beforeend',r)}})};
+ const block=(headHTML,txt)=>{const ls=lines(txt);if(!ls.length)return;
+  place(E('div',headHTML+`<p>${esc(ls[0])}</p>`));ls.slice(1).forEach(l=>place(E('p',esc(l))))};
+
+ let rows=[],tf=0,ti=0;
+ const ins=q.kind=='insumo';
+ /* INSUMOS: una sola hoja con las fotos de los productos cotizados */
+ if(ins&&q.cover!==false){
+  const seen=new Set(),ps=[];S.items.forEach(it=>{const p=prod(it.pid);if(it.cover!==false&&p.main_image&&DIM[p.main_image]&&!seen.has(p.id)){seen.add(p.id);ps.push(p)}});
+  if(ps.length){
+   newPage(hdAll);cur.classList.add('im');const bx=boxOf(cur),n=ps.length,gp=mm2px(6);
+   const cols=n==1?1:n<=4?2:3,rws=Math.ceil(n/cols),cw=(bx.w-gp*(cols-1))/cols,ch=(bx.h-4-gp*(rws-1))/rws,cap=n>1?38:0;
+   cur.innerHTML=`<div style="width:${bx.w}px;display:flex;flex-wrap:wrap;justify-content:center;align-content:center;gap:${gp}px">`+ps.map(p=>`<div style="width:${cw-1}px;height:${ch}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">${imgFit(p.main_image,cw-1,ch-cap,2)}${n>1?`<div style="height:32px;overflow:hidden;text-align:center;font-weight:700;font-size:12px;line-height:1.3;color:#12263a">${esc(brand(p.brand_id).name)} ${esc(p.name)}</div>`:''}</div>`).join('')+'</div>'}}
+ S.items.forEach(it=>{const p=prod(it.pid),b=brand(p.brand_id),hd=hdProd(b,p);
+  if(!ins){
+  /* imagen principal */
+  if(p.main_image&&DIM[p.main_image])imgPage(p.main_image,hd);
+  /* descripción técnica + especificaciones */
+  newPage(hd);
+  place(E('h2','Descripción técnica'));
+  place(E('h3',`${esc(b.name)} ${esc(p.name)}`));
+  /* texto plano, respetando los saltos de línea tal como están guardados en el producto */
+  const plain=t=>String(t||'').replace(/\r/g,'').replace(/\s+$/,'').split('\n').forEach(l=>place(l.trim()?E('p',esc(l.replace(/\s+$/,'')),'tx'):E('div','','gap')));
+  plain(p.description);
+  if((p.description||'').trim()&&(p.specs||'').trim())place(E('div','','gap'));
+  plain(p.specs);
+  /* imágenes adicionales: una por hoja */
+  (p.images||[]).filter(u=>DIM[u]).forEach(u=>imgPage(u,hd));}
+
+  const add=(name,price,mode,alt)=>{const s=price*it.qty;if(!alt)mode=='iva'?ti+=s:tf+=s;
+   rows.push(`<tr><td>${name}${alt?' <i>(opción alternativa)</i>':''}</td><td>${it.qty}</td><td>${cu} ${money(price)}${mode=='iva'?' + IVA':''}</td><td>${cu} ${money(s)}${mode=='iva'?' + IVA':''}</td></tr>`)};
+  add(`<b>${esc(b.name)}</b> ${esc(p.name)}`,it.price,it.mode,it.alt);
+  it.opts.filter(o=>o.on).forEach(o=>add('&nbsp;&nbsp;+ Opcional: '+esc(o.name),o.price,it.mode,it.alt))});
+
+ /* propuesta comercial */
+ const tot=(l,v)=>v?`<tr class="tot"><td colspan="3">${l}</td><td>${cu} ${money(v)}</td></tr>`:'';
+ if(tot('',tf))rows.push(tot('Total precio final',tf));
+ if(tot('',ti))rows.push(tot('Total + IVA (IVA no incluido)',ti));
+ newPage(hdAll);
+ place(E('h2','Propuesta comercial'));
+ place(E('p',`${q.contact?`A la atención de <b>${esc(q.contact)}</b> · `:''}Cliente: <b>${esc(q.client)}</b> · Fecha: ${new Date(q.date||Date.now()).toLocaleDateString('es-AR')} · Validez: ${esc(q.validity)}`));
+ placeTable('pr','<tr><th>Descripción</th><th>Cant.</th><th>Precio unit.</th><th>Subtotal</th></tr>',rows);
+ const sel=f=>(q[f]||[]).filter(t=>t.on).map(t=>t.text||'').join('\n');
+ block('<b class="sub">Condiciones comerciales</b>',sel('tc'));
+ block('<b class="sub">Formas de pago y financiación</b>',sel('pc'));
+
+ const pgs=[...root.querySelectorAll('.pg')];
+ pgs.forEach((e,i)=>{e.querySelector('.pn').textContent=`Página ${i+1} de ${pgs.length}`});
+ await Promise.all([...root.querySelectorAll('img')].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r})));
+ const what=ins?'Insumos':[...new Set(S.items.map(i=>slug(brand(prod(i.pid).brand_id).name+' '+prod(i.pid).name)))].filter(Boolean).join('-').slice(0,90);
+ const name='Presupuesto-'+(slug(q.client)||'cliente')+'-'+what+'-'+new Date().toISOString().slice(0,10)+'.pdf';
+ document.body.style.cursor='wait';
+ try{
+  const {jsPDF}=window.jspdf,pdf=new jsPDF({unit:'mm',format:'a4',compress:true});
+  for(let i=0;i<pgs.length;i++){
+   const cv=await html2canvas(pgs[i],{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0,logging:false,
+    onclone:d=>{const w=d.getElementById('pdfwrap');w.style.left='0';w.style.top='0';w.style.zIndex='99999'}});
+   if(i)pdf.addPage();
+   pdf.addImage(cv.toDataURL('image/jpeg',.92),'JPEG',0,0,210,297,undefined,'FAST')}
+  pdf.save(name);S.done='pdf'
+ }catch(e){alert('Error al generar el PDF: '+(e.message||e))}
+ document.body.style.cursor='';
+ root.innerHTML='';
+ if(S.done=='pdf'){render();window.scrollTo({top:0,behavior:'smooth'})}}
+</script></body></html>
