@@ -325,15 +325,16 @@ async function makePdf(){
   /* imágenes adicionales: una por hoja */
   (p.images||[]).filter(u=>DIM[u]).forEach(u=>imgPage(u,hd));}
 
-  const add=(name,price,mode,alt)=>{const s=price*it.qty;if(!alt)mode=='iva'?ti+=s:tf+=s;
-   rows.push(`<tr><td>${name}${alt?' <i>(opción alternativa)</i>':''}</td><td>${it.qty}</td><td>${cu} ${money(price)}${mode=='iva'?' + IVA':''}</td><td>${cu} ${money(s)}${mode=='iva'?' + IVA':''}</td></tr>`)};
+  const add=(name,price,mode,alt,isOpt)=>{const s=price*it.qty;if(!alt)mode=='iva'?ti+=s:tf+=s;
+   rows.push(`<tr><td>${name}${alt&&!isOpt?' <i>(opción alternativa)</i>':''}</td><td>${it.qty}</td><td>${cu} ${money(price)}${mode=='iva'?' + IVA':''}</td><td>${cu} ${money(s)}${mode=='iva'?' + IVA':''}</td></tr>`)};
   add(`<b>${esc(b.name)}</b> ${esc(p.name)}`,it.price,it.mode,it.alt);
-  it.opts.filter(o=>o.on).forEach(o=>add('&nbsp;&nbsp;+ Opcional: '+esc(o.name),o.price,it.mode,it.alt))});
+  it.opts.filter(o=>o.on).forEach(o=>add('&nbsp;&nbsp;'+esc(o.name),o.price,it.mode,it.alt,true))});
 
  /* propuesta comercial */
  const tot=(l,v)=>v?`<tr class="tot"><td colspan="3">${l}</td><td>${cu} ${money(v)}</td></tr>`:'';
- if(tot('',tf))rows.push(tot('Total precio final',tf));
- if(tot('',ti))rows.push(tot('Total + IVA (IVA no incluido)',ti));
+ if(tf&&ti){rows.push(tot('TOTAL DEL PRESUPUESTO · precio final',tf));rows.push(tot('TOTAL DEL PRESUPUESTO · + IVA (IVA no incluido)',ti))}
+ else if(tf)rows.push(tot('TOTAL DEL PRESUPUESTO (precio final)',tf));
+ else if(ti)rows.push(tot('TOTAL DEL PRESUPUESTO + IVA (IVA no incluido)',ti));
  newPage(hdAll);
  place(E('h2','Propuesta comercial'));
  place(E('p',`${q.contact?`A la atención de <b>${esc(q.contact)}</b> · `:''}Cliente: <b>${esc(q.client)}</b> · Fecha: ${new Date(q.date||Date.now()).toLocaleDateString('es-AR')} · Validez: ${esc(q.validity)}`));
