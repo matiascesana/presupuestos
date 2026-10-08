@@ -225,8 +225,8 @@ function itemRow(it,i){const p=prod(it.pid);
  <label><input type="checkbox" ${it.alt?'checked':''} onchange="S.items[${i}].alt=this.checked"> Opción alternativa (se muestra pero no suma al total)</label>
  ${S.q.kind=='insumo'&&S.q.cover!==false?`<label><input type="checkbox" ${it.cover!==false?'checked':''} onchange="S.items[${i}].cover=this.checked"> Mostrar su imagen en la portada del PDF</label>`:''}
  ${it.opts.length?`<label><input type="checkbox" ${it.sumOpts!==false?'checked':''} onchange="S.items[${i}].sumOpts=this.checked"> Sumar los opcionales al total del presupuesto</label><div class="mut">Opcionales (tildá los que se incluyen)</div>`:''}
- ${it.opts.map((o,j)=>`<div class="opt"><input type="checkbox" ${o.on?'checked':''} onchange="S.items[${i}].opts[${j}].on=this.checked"><input value="${esc(o.name)}" oninput="S.items[${i}].opts[${j}].name=this.value"><input type="number" step="any" value="${o.price}" oninput="S.items[${i}].opts[${j}].price=+this.value"></div>`).join('')}
- <button onclick="S.items[${i}].opts.push({name:'Nuevo opcional',price:0,on:true});render()">+ Opcional</button></div>`}
+ ${it.opts.map((o,j)=>`<div class="opt"><input type="checkbox" ${o.on?'checked':''} onchange="S.items[${i}].opts[${j}].on=this.checked"><input value="${esc(o.name)}" oninput="S.items[${i}].opts[${j}].name=this.value"><input type="number" min="1" step="1" title="Cantidad" placeholder="Cant." style="width:80px" value="${o.qty||1}" oninput="S.items[${i}].opts[${j}].qty=Math.max(1,+this.value||1)"><input type="number" step="any" value="${o.price}" oninput="S.items[${i}].opts[${j}].price=+this.value"></div>`).join('')}
+ <button onclick="S.items[${i}].opts.push({name:'Nuevo opcional',price:0,qty:1,on:true});render()">+ Opcional</button></div>`}
 function addModal(){
  const kind=S.q.kind||'equipo',kp=p=>(p.kind||'equipo')==kind;
  const brs=S.brands.filter(b=>S.prods.some(p=>p.brand_id==b.id&&kp(p)));
@@ -236,7 +236,7 @@ function addModal(){
  const fill=()=>{fld(m,'p').innerHTML=S.prods.filter(p=>p.brand_id==fld(m,'b').value&&kp(p)).map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')};
  fld(m,'b').onchange=fill;fill()}
 function addItem(pid){const p=prod(pid),b=brand(p.brand_id);
- S.items.push({pid,label:(b.name||'')+' '+(p.name||''),price:p.price,mode:p.price_mode,qty:1,alt:false,opts:S.opts.filter(o=>o.product_id==pid).map(o=>({name:o.name,price:o.price,on:false}))});
+ S.items.push({pid,label:(b.name||'')+' '+(p.name||''),price:p.price,mode:p.price_mode,qty:1,alt:false,opts:S.opts.filter(o=>o.product_id==pid).map(o=>({name:o.name,price:o.price,qty:1,on:false}))});
  render()}
 
 /* ---------- PDF ---------- */
@@ -325,10 +325,10 @@ async function makePdf(){
   /* imágenes adicionales: una por hoja */
   (p.images||[]).filter(u=>DIM[u]).forEach(u=>imgPage(u,hd));}
 
-  const add=(name,price,mode,alt,isOpt)=>{const s=price*it.qty;if(!alt)mode=='iva'?ti+=s:tf+=s;
-   rows.push(`<tr><td>${name}${alt&&!isOpt?' <i>(opción alternativa)</i>':''}</td><td>${it.qty}</td><td>${cu} ${money(price)}${mode=='iva'?' + IVA':''}</td><td>${cu} ${money(s)}${mode=='iva'?' + IVA':''}</td></tr>`)};
+  const add=(name,price,mode,alt,isOpt,qn)=>{const nq=qn||it.qty,s=price*nq;if(!alt)mode=='iva'?ti+=s:tf+=s;
+   rows.push(`<tr><td>${name}${alt&&!isOpt?' <i>(opción alternativa)</i>':''}</td><td>${nq}</td><td>${cu} ${money(price)}${mode=='iva'?' + IVA':''}</td><td>${cu} ${money(s)}${mode=='iva'?' + IVA':''}</td></tr>`)};
   add(`<b>${esc(b.name)}</b> ${esc(p.name)}`,it.price,it.mode,it.alt);
-  it.opts.filter(o=>o.on).forEach(o=>add('&nbsp;&nbsp;'+esc(o.name),o.price,it.mode,it.alt||it.sumOpts===false,true))});
+  it.opts.filter(o=>o.on).forEach(o=>add('&nbsp;&nbsp;'+esc(o.name),o.price,it.mode,it.alt||it.sumOpts===false,true,o.qty||1))});
 
  /* propuesta comercial */
  const tot=(l,v)=>v?`<tr class="tot"><td colspan="3">${l}</td><td>${cu} ${money(v)}</td></tr>`:'';
