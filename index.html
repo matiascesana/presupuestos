@@ -7,7 +7,8 @@
 <style>
 :root{--navy:#12263a;--teal:#0f8b8d;--bg:#f3f5f7;--ink:#1b2733;--line:#d9e0e6;--mut:#6b7a89}
 *{box-sizing:border-box}body{margin:0;font:15px/1.5 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-header{background:var(--navy);color:#fff;display:flex;align-items:center;gap:24px;padding:12px 24px;flex-wrap:wrap}
+header{background:var(--navy);color:#fff;display:flex;align-items:center;gap:24px;padding:12px 24px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+#fx{background:#0b1a29;border:1px solid #2a4560;border-radius:6px;padding:5px 10px;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto}#fx b{color:#7fe0e1;font-size:16px}#fx input{width:70px;padding:3px 6px;margin:0;font-size:13px}#fx button{background:none;border:1px solid #2a4560;color:#b8c7d6;border-radius:4px;padding:1px 7px;cursor:pointer}#fx small{color:#8fa3b5}#fx .er{color:#ffb86b}
 #logo img{height:44px;display:block;background:#fff;padding:4px 8px;border-radius:4px}#logo b{font-size:20px}
 nav{display:flex;gap:4px}nav button{background:none;border:0;color:#b8c7d6;padding:8px 14px;cursor:pointer;font-size:15px;border-bottom:2px solid transparent}
 nav button.on{color:#fff;border-color:var(--teal)}
@@ -60,7 +61,8 @@ table.sp,table.pr{width:100%;border-collapse:collapse;margin:10px 0;table-layout
 <button data-v="saved" onclick="go('saved')">Presupuestos generados</button>
 <button data-v="cat" onclick="go('cat')">Marcas y productos</button>
 <button data-v="cfg" onclick="go('cfg')">Mi empresa</button></nav>
-<button style="margin-left:auto" onclick="sb.auth.signOut()">Salir</button></header>
+<div id="fx">Cargando dólar BNA…</div>
+<button onclick="sb.auth.signOut()">Salir</button></header>
 <main id="main"></main><div id="pdfwrap"><div id="pdf"></div></div>
 <script>
 /* === CONFIGURACIÓN: pegá los datos de tu proyecto Supabase === */
@@ -361,4 +363,22 @@ async function makePdf(){
  document.body.style.cursor='';
  root.innerHTML='';
  if(S.done=='pdf'){render();window.scrollTo({top:0,behavior:'smooth'})}}
+
+/* === Cotización Dólar BNA (billete, venta) siempre visible === */
+const FX={venta:0,fecha:'',manual:false,err:false};
+const fxFmt=n=>new Intl.NumberFormat('es-AR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
+function fxPaint(){const el=$('#fx');if(!el)return;
+ if(!FX.venta){el.innerHTML='<span class="er">Dólar BNA no disponible</span> <button onclick="fxLoad(true)" title="Reintentar">↻</button> <button onclick="fxManual()" title="Cargar a mano">✎</button>';return}
+ const d=FX.fecha?new Date(FX.fecha):null,hh=d&&!isNaN(d)?d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+ const old=$('#fx_u'),u=old?old.value:1;
+ el.innerHTML=`<span>Dólar BNA venta</span> <b>$ ${fxFmt(FX.venta)}</b> <span>· USD</span><input id="fx_u" type="number" step="any" min="0" value="${u}" oninput="fxCalc()"><span>= <b id="fx_r"></b></span> <small>${FX.manual?'(manual)':FX.err?'<span class="er">sin conexión, último valor</span>':''} ${hh}</small> <button onclick="fxLoad(true)" title="Actualizar">↻</button> <button onclick="fxManual()" title="Cargar a mano">✎</button>`;fxCalc()}
+function fxCalc(){const u=+($('#fx_u')||{}).value||0,r=$('#fx_r');if(r)r.textContent='$ '+fxFmt(u*FX.venta)}
+function fxManual(){const v=prompt('Cotización de venta del dólar (ej: 1540,00):',FX.venta?String(FX.venta).replace('.',','):'');if(v===null)return;const n=parseFloat(String(v).replace(/\./g,'').replace(',','.'));if(!(n>0))return alert('Valor inválido');FX.venta=n;FX.manual=true;FX.fecha=new Date().toISOString();fxPaint()}
+async function fxLoad(force){if(FX.manual&&!force)return;
+ try{const r=await fetch('https://dolarapi.com/v1/dolares/oficial',{cache:'no-store'});const d=await r.json(),v=+d.venta;if(!(v>0))throw 0;
+  FX.venta=v;FX.fecha=d.fechaActualizacion||new Date().toISOString();FX.manual=false;FX.err=false;
+  try{localStorage.setItem('fx',JSON.stringify({v,f:FX.fecha}))}catch(e){}}
+ catch(e){FX.err=true;if(!FX.venta){try{const c=JSON.parse(localStorage.getItem('fx')||'null');if(c){FX.venta=c.v;FX.fecha=c.f}}catch(_){}}}
+ fxPaint()}
+fxLoad();setInterval(fxLoad,300000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)fxLoad()});
 </script></body></html>
